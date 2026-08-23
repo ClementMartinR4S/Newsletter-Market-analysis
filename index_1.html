@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veille R4S — Tri des articles</title>
+<style>
+  :root{
+    --ink:#12172B;
+    --ink-2:#1B2140;
+    --paper:#F4F2EC;
+    --paper-dim:#C9C6BC;
+    --line:#33395C;
+    --amber:#E8A33D;
+    --green:#5C9A72;
+    --coral:#D6634A;
+    --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--paper);
+    font-family:var(--font-body);
+    min-height:100vh;
+  }
+
+  /* ---- Écran de connexion ---- */
+  #loginScreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:1.5rem;
+  }
+  .login-box{
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:2.2rem 2rem;
+    width:100%;
+    max-width:360px;
+  }
+  .login-box .eyebrow{
+    font-size:.7rem;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--amber);
+    margin-bottom:.4rem;
+  }
+  .login-box h1{
+    font-family:var(--font-display);
+    font-weight:400;
+    font-size:1.5rem;
+    margin:0 0 1.4rem;
+  }
+  .login-box input{
+    width:100%;
+    background:var(--ink);
+    border:1px solid var(--line);
+    color:var(--paper);
+    padding:.65rem .8rem;
+    border-radius:6px;
+    font-size:.9rem;
+    margin-bottom:.8rem;
+  }
+  .login-box button{
+    width:100%;
+    background:var(--amber);
+    color:var(--ink);
+    border:none;
+    padding:.7rem;
+    border-radius:6px;
+    font-weight:700;
+    font-size:.9rem;
+    cursor:pointer;
+  }
+  .login-box button:disabled{opacity:.6; cursor:not-allowed;}
+  .login-error{
+    color:var(--coral);
+    font-size:.8rem;
+    margin-top:.7rem;
+    display:none;
+  }
+
+  /* ---- App principale ---- */
+  #app{display:none;}
+
+  header{
+    padding:2.2rem 2.5rem 1.4rem;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+  }
+  header .eyebrow{
+    font-size:.72rem;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--amber);
+    margin-bottom:.4rem;
+  }
+  header h1{
+    font-family:var(--font-display);
+    font-weight:400;
+    font-size:2rem;
+    margin:0;
+    letter-spacing:.01em;
+  }
+  header p{
+    color:var(--paper-dim);
+    font-size:.9rem;
+    margin:.5rem 0 0;
+  }
+  .header-actions{display:flex; align-items:center; gap:.8rem; padding-top:.3rem;}
+  .header-actions span{font-size:.8rem; color:var(--paper-dim);}
+  .logout-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--paper-dim);
+    padding:.4rem .8rem;
+    border-radius:6px;
+    font-size:.8rem;
+    cursor:pointer;
+  }
+  .logout-btn:hover{color:var(--coral); border-color:var(--coral);}
+  .refresh-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--paper);
+    padding:.4rem .8rem;
+    border-radius:6px;
+    font-size:.8rem;
+    cursor:pointer;
+  }
+  .refresh-btn:hover{border-color:var(--amber); color:var(--amber);}
+
+  .layout{
+    display:grid;
+    grid-template-columns:260px 1fr;
+    gap:0;
+  }
+  @media (max-width:820px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  aside{
+    padding:1.8rem 1.5rem;
+    border-right:1px solid var(--line);
+  }
+  aside h2{
+    font-size:.72rem;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+    margin:0 0 .8rem;
+  }
+  .theme-chip{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:.45rem .7rem;
+    border-radius:6px;
+    font-size:.85rem;
+    cursor:pointer;
+    margin-bottom:.3rem;
+    border:1px solid transparent;
+    color:var(--paper);
+  }
+  .theme-chip:hover{background:var(--ink-2);}
+  .theme-chip.active{
+    background:var(--ink-2);
+    border-color:var(--amber);
+    color:var(--amber);
+  }
+  .theme-chip .count{color:var(--paper-dim); font-size:.78rem;}
+
+  .status-filter{margin-top:1.6rem;}
+  .status-filter button{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:none;
+    border:none;
+    color:var(--paper);
+    font-size:.85rem;
+    padding:.4rem .2rem;
+    cursor:pointer;
+    border-bottom:1px solid transparent;
+  }
+  .status-filter button.active{color:var(--amber); font-weight:600;}
+
+  .add-theme{
+    margin-top:1.6rem;
+    display:flex;
+    gap:.4rem;
+  }
+  .add-theme input{
+    flex:1;
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    color:var(--paper);
+    padding:.4rem .5rem;
+    border-radius:5px;
+    font-size:.8rem;
+  }
+  .add-theme button{
+    background:var(--amber);
+    color:var(--ink);
+    border:none;
+    border-radius:5px;
+    padding:.4rem .6rem;
+    font-size:.8rem;
+    cursor:pointer;
+    font-weight:600;
+  }
+
+  main{padding:1.8rem 2.2rem 3rem;}
+
+  .add-article{
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:1.2rem 1.4rem;
+    margin-bottom:1.8rem;
+  }
+  .add-article h2{
+    font-family:var(--font-display);
+    font-weight:400;
+    font-size:1.1rem;
+    margin:0 0 .8rem;
+  }
+  .add-grid{
+    display:grid;
+    grid-template-columns:2fr 1fr 1fr;
+    gap:.7rem;
+    margin-bottom:.7rem;
+  }
+  @media (max-width:700px){.add-grid{grid-template-columns:1fr;}}
+  .add-article input, .add-article select{
+    width:100%;
+    background:var(--ink);
+    border:1px solid var(--line);
+    color:var(--paper);
+    padding:.55rem .7rem;
+    border-radius:6px;
+    font-size:.88rem;
+  }
+  .tag-select-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:.4rem;
+    margin-bottom:.8rem;
+  }
+  .tag-pick{
+    padding:.3rem .6rem;
+    border-radius:20px;
+    border:1px solid var(--line);
+    font-size:.78rem;
+    cursor:pointer;
+    color:var(--paper-dim);
+  }
+  .tag-pick.selected{
+    background:var(--amber);
+    color:var(--ink);
+    border-color:var(--amber);
+    font-weight:600;
+  }
+  .add-article button.submit{
+    background:var(--amber);
+    color:var(--ink);
+    border:none;
+    padding:.6rem 1.1rem;
+    border-radius:6px;
+    font-weight:700;
+    font-size:.85rem;
+    cursor:pointer;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:.87rem;
+  }
+  thead th{
+    text-align:left;
+    font-size:.7rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+    padding:.6rem .6rem;
+    border-bottom:1px solid var(--line);
+  }
+  tbody td{
+    padding:.75rem .6rem;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  tbody tr:hover{background:rgba(255,255,255,0.02);}
+  .art-title{font-weight:600;}
+  .art-title a{color:var(--paper); text-decoration:none;}
+  .art-title a:hover{color:var(--amber);}
+  .art-source{color:var(--paper-dim); font-size:.78rem; margin-top:.15rem;}
+  .tag-list{display:flex; flex-wrap:wrap; gap:.3rem;}
+  .tag-badge{
+    background:var(--ink-2);
+    border:1px solid var(--line);
+    color:var(--paper-dim);
+    padding:.15rem .5rem;
+    border-radius:20px;
+    font-size:.72rem;
+  }
+  .fait-cell{text-align:center;}
+  .fait-cell input[type=checkbox]{
+    width:18px;height:18px;
+    accent-color:var(--green);
+    cursor:pointer;
+  }
+  .date-input{
+    background:var(--ink);
+    border:1px solid var(--line);
+    color:var(--paper);
+    padding:.3rem .4rem;
+    border-radius:5px;
+    font-size:.78rem;
+    width:130px;
+  }
+  .date-input.missing{border-color:var(--coral);}
+  .date-warning{color:var(--coral); font-size:.7rem; margin-top:.2rem;}
+  .del-btn{
+    background:none;border:none;color:var(--paper-dim);
+    cursor:pointer;font-size:.9rem;
+  }
+  .del-btn:hover{color:var(--coral);}
+  .empty-state{
+    padding:3rem 1rem;
+    text-align:center;
+    color:var(--paper-dim);
+  }
+  .empty-state .big{font-family:var(--font-display); font-size:1.3rem; color:var(--paper); margin-bottom:.4rem;}
+</style>
+</head>
+<body>
+
+<!-- ============ ÉCRAN DE CONNEXION ============ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="eyebrow">Rocket4Sales · Veille marché</div>
+    <h1>Connexion</h1>
+    <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
+    <input type="password" id="loginPassword" placeholder="Mot de passe" autocomplete="current-password">
+    <button id="loginBtn" onclick="handleLogin()">Se connecter</button>
+    <div class="login-error" id="loginError">Email ou mot de passe incorrect.</div>
+  </div>
+</div>
+
+<!-- ============ APPLICATION ============ -->
+<div id="app">
+  <header>
+    <div>
+      <div class="eyebrow">Rocket4Sales · Veille marché</div>
+      <h1>Tri des articles</h1>
+      <p>Sélectionne, tague et suis le traitement des articles issus des newsletters.</p>
+    </div>
+    <div class="header-actions">
+      <span id="userEmailLabel"></span>
+      <button class="refresh-btn" onclick="loadData()">🔄 Actualiser</button>
+      <button class="logout-btn" onclick="logout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <h2>Thématiques</h2>
+      <div id="themeList"></div>
+      <div class="add-theme">
+        <input type="text" id="newThemeInput" placeholder="Nouvelle thématique">
+        <button onclick="addTheme()">+</button>
+      </div>
+
+      <div class="status-filter">
+        <h2>Statut</h2>
+        <button class="active" data-status="all" onclick="setStatusFilter('all')">Tous</button>
+        <button data-status="pending" onclick="setStatusFilter('pending')">À traiter</button>
+        <button data-status="done" onclick="setStatusFilter('done')">Fait</button>
+      </div>
+    </aside>
+
+    <main>
+      <div class="add-article">
+        <h2>Ajouter un article</h2>
+        <div class="add-grid">
+          <input type="text" id="titleInput" placeholder="Titre de l'article">
+          <input type="text" id="sourceInput" placeholder="Source (newsletter)">
+          <input type="text" id="urlInput" placeholder="Lien (optionnel)">
+        </div>
+        <div class="tag-select-row" id="tagPickRow"></div>
+        <button class="submit" onclick="addArticle()">Ajouter l'article</button>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32%">Article</th>
+            <th style="width:20%">Tags</th>
+            <th style="width:12%">Fait</th>
+            <th style="width:16%">Date</th>
+            <th style="width:5%"></th>
+          </tr>
+        </thead>
+        <tbody id="articleRows"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <div class="big">Aucun article pour ce filtre</div>
+        <div>Ajoute un article ci-dessus ou change de filtre.</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   CONFIGURATION — à remplacer par tes propres valeurs Supabase
+   (Settings → API dans ton projet Supabase)
+   ========================================================== */
+const SUPABASE_URL = 'https://zccxdhzgmsychngebfdj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_V96D3iX70x2aTOObhVwfcQ_3MgGFNoI';
+
+let session = null;
+let themes = [];
+let articles = [];
+let selectedTags = [];
+let activeThemeFilter = null;
+let activeStatus = 'all';
+
+/* ---------------- AUTHENTIFICATION ---------------- */
+
+function restoreSession(){
+  try{
+    const raw = localStorage.getItem('r4s_session');
+    if(raw) session = JSON.parse(raw);
+  }catch(e){ session = null; }
+}
+
+async function handleLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const btn = document.getElementById('loginBtn');
+  const errBox = document.getElementById('loginError');
+  errBox.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Connexion...';
+
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if(data.access_token){
+      session = data;
+      localStorage.setItem('r4s_session', JSON.stringify(data));
+      showApp();
+    }else{
+      errBox.style.display = 'block';
+    }
+  }catch(e){
+    errBox.textContent = 'Erreur de connexion. Vérifie ta configuration Supabase.';
+    errBox.style.display = 'block';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Se connecter';
+  }
+}
+
+function logout(){
+  session = null;
+  localStorage.removeItem('r4s_session');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+function showApp(){
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('userEmailLabel').textContent = session.user?.email || '';
+  loadData();
+}
+
+/* ---------------- ACCÈS DONNÉES (Supabase REST) ---------------- */
+
+function authHeaders(extra){
+  return Object.assign({
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${session.access_token}`
+  }, extra || {});
+}
+
+async function supaGet(key, fallback){
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/newsletter_market_analysis?key=eq.${key}&select=value`, {
+      headers: authHeaders()
+    });
+    if(res.status === 401){ logout(); return fallback; }
+    const data = await res.json();
+    return (Array.isArray(data) && data.length) ? data[0].value : fallback;
+  }catch(e){
+    console.error('Erreur chargement', key, e);
+    return fallback;
+  }
+}
+
+async function supaSet(key, value){
+  try{
+    await fetch(`${SUPABASE_URL}/rest/v1/newsletter_market_analysis`, {
+      method: 'POST',
+      headers: authHeaders({
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates'
+      }),
+      body: JSON.stringify({ key, value })
+    });
+  }catch(e){
+    console.error('Erreur sauvegarde', key, e);
+  }
+}
+
+async function loadData(){
+  themes = await supaGet('themes', ['Cloud Infra','Intelligence Artificielle','SaaS','RH & Recrutement']);
+  articles = await supaGet('articles', []);
+  render();
+}
+async function saveThemes(){ await supaSet('themes', themes); }
+async function saveArticles(){ await supaSet('articles', articles); }
+
+/* ---------------- LOGIQUE DE L'OUTIL ---------------- */
+
+function todayISO(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+function addTheme(){
+  const input = document.getElementById('newThemeInput');
+  const val = input.value.trim();
+  if(!val) return;
+  if(!themes.includes(val)) themes.push(val);
+  input.value = '';
+  saveThemes();
+  render();
+}
+
+function setStatusFilter(status){
+  activeStatus = status;
+  document.querySelectorAll('.status-filter button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.status===status);
+  });
+  render();
+}
+
+function setThemeFilter(theme){
+  activeThemeFilter = (activeThemeFilter===theme) ? null : theme;
+  render();
+}
+
+function toggleTagPick(tag){
+  const i = selectedTags.indexOf(tag);
+  if(i>-1) selectedTags.splice(i,1); else selectedTags.push(tag);
+  renderTagPickRow();
+}
+
+function addArticle(){
+  const title = document.getElementById('titleInput').value.trim();
+  const source = document.getElementById('sourceInput').value.trim();
+  const url = document.getElementById('urlInput').value.trim();
+  if(!title){ alert('Le titre est obligatoire.'); return; }
+  articles.unshift({
+    id: Date.now().toString(),
+    title, source, url,
+    tags: [...selectedTags],
+    fait: false,
+    faitDate: null
+  });
+  document.getElementById('titleInput').value='';
+  document.getElementById('sourceInput').value='';
+  document.getElementById('urlInput').value='';
+  selectedTags = [];
+  saveArticles();
+  render();
+}
+
+function deleteArticle(id){
+  articles = articles.filter(a=>a.id!==id);
+  saveArticles();
+  render();
+}
+
+function toggleFait(id, checked){
+  const art = articles.find(a=>a.id===id);
+  if(!art) return;
+  art.fait = checked;
+  if(checked && !art.faitDate){
+    art.faitDate = todayISO();
+  }
+  saveArticles();
+  render();
+}
+
+function updateFaitDate(id, value){
+  const art = articles.find(a=>a.id===id);
+  if(!art) return;
+  art.faitDate = value || null;
+  saveArticles();
+  render();
+}
+
+function renderThemeList(){
+  const el = document.getElementById('themeList');
+  el.innerHTML = '';
+  themes.forEach(theme=>{
+    const count = articles.filter(a=>a.tags.includes(theme)).length;
+    const div = document.createElement('div');
+    div.className = 'theme-chip' + (activeThemeFilter===theme ? ' active' : '');
+    div.onclick = ()=>setThemeFilter(theme);
+    div.innerHTML = `<span>${theme}</span><span class="count">${count}</span>`;
+    el.appendChild(div);
+  });
+}
+
+function renderTagPickRow(){
+  const row = document.getElementById('tagPickRow');
+  row.innerHTML = '';
+  themes.forEach(theme=>{
+    const span = document.createElement('span');
+    span.className = 'tag-pick' + (selectedTags.includes(theme) ? ' selected' : '');
+    span.textContent = theme;
+    span.onclick = ()=>toggleTagPick(theme);
+    row.appendChild(span);
+  });
+}
+
+function render(){
+  renderThemeList();
+  renderTagPickRow();
+
+  let filtered = articles;
+  if(activeThemeFilter) filtered = filtered.filter(a=>a.tags.includes(activeThemeFilter));
+  if(activeStatus==='pending') filtered = filtered.filter(a=>!a.fait);
+  if(activeStatus==='done') filtered = filtered.filter(a=>a.fait);
+
+  const tbody = document.getElementById('articleRows');
+  tbody.innerHTML = '';
+  document.getElementById('emptyState').style.display = filtered.length ? 'none' : 'block';
+
+  filtered.forEach(art=>{
+    const tr = document.createElement('tr');
+
+    const titleHtml = art.url
+      ? `<a href="${art.url}" target="_blank" rel="noopener">${art.title}</a>`
+      : art.title;
+
+    const tagsHtml = art.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+    const dateMissing = art.fait && !art.faitDate;
+
+    tr.innerHTML = `
+      <td>
+        <div class="art-title">${titleHtml}</div>
+        ${art.source ? `<div class="art-source">${art.source}</div>` : ''}
+      </td>
+      <td><div class="tag-list">${tagsHtml}</div></td>
+      <td class="fait-cell">
+        <input type="checkbox" ${art.fait ? 'checked' : ''} onchange="toggleFait('${art.id}', this.checked)">
+      </td>
+      <td>
+        <input type="date" class="date-input ${dateMissing ? 'missing' : ''}"
+          value="${art.faitDate || ''}" ${art.fait ? '' : 'disabled'}
+          onchange="updateFaitDate('${art.id}', this.value)">
+        ${dateMissing ? '<div class="date-warning">Date requise</div>' : ''}
+      </td>
+      <td><button class="del-btn" onclick="deleteArticle('${art.id}')" title="Supprimer">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ---------------- DÉMARRAGE ---------------- */
+restoreSession();
+if(session && session.access_token){
+  showApp();
+}
+</script>
+
+</body>
+</html>
