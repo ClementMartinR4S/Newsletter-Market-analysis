@@ -176,6 +176,27 @@
   }
   .theme-chip .count{color:var(--paper-dim); font-size:.78rem;}
 
+  .trend-section{margin-top:1.6rem;}
+  .trend-chip{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:.45rem .7rem;
+    border-radius:6px;
+    font-size:.85rem;
+    cursor:pointer;
+    margin-bottom:.3rem;
+    border:1px solid transparent;
+    color:var(--coral);
+  }
+  .trend-chip:hover{background:var(--ink-2);}
+  .trend-chip.active{
+    background:var(--ink-2);
+    border-color:var(--coral);
+  }
+  .trend-chip .count{color:var(--paper-dim); font-size:.78rem;}
+  .trend-empty{color:var(--paper-dim); font-size:.8rem;}
+
   .status-filter{margin-top:1.6rem;}
   .status-filter button{
     display:block;
@@ -267,6 +288,12 @@
     border-color:var(--amber);
     font-weight:600;
   }
+  .tag-pick.trend{border-color:var(--coral); color:var(--coral);}
+  .tag-pick.trend.selected{
+    background:var(--coral);
+    color:var(--ink);
+    border-color:var(--coral);
+  }
   .add-article button.submit{
     background:var(--amber);
     color:var(--ink);
@@ -311,6 +338,7 @@
     border-radius:20px;
     font-size:.72rem;
   }
+  .tag-badge.trend{border-color:var(--coral); color:var(--coral);}
   .fait-cell{text-align:center;}
   .fait-cell input[type=checkbox]{
     width:18px;height:18px;
@@ -379,6 +407,11 @@
         <button onclick="addTheme()">+</button>
       </div>
 
+      <div class="trend-section">
+        <h2>Tendances</h2>
+        <div id="trendList"></div>
+      </div>
+
       <div class="status-filter">
         <h2>Statut</h2>
         <button class="active" data-status="all" onclick="setStatusFilter('all')">Tous</button>
@@ -429,9 +462,11 @@ const SUPABASE_ANON_KEY = 'sb_publishable_V96D3iX70x2aTOObhVwfcQ_3MgGFNoI';
 
 let session = null;
 let themes = [];
+let trends = [];
 let articles = [];
 let selectedTags = [];
 let activeThemeFilter = null;
+let activeTrendFilter = null;
 let activeStatus = 'all';
 
 /* ---------------- AUTHENTIFICATION ---------------- */
@@ -534,6 +569,7 @@ async function supaSet(key, value){
 
 async function loadData(){
   themes = await supaGet('themes', ['Cloud Infra','Intelligence Artificielle','SaaS','RH & Recrutement']);
+  trends = await supaGet('tendances', []);
   articles = await supaGet('articles', []);
   render();
 }
@@ -567,6 +603,11 @@ function setStatusFilter(status){
 
 function setThemeFilter(theme){
   activeThemeFilter = (activeThemeFilter===theme) ? null : theme;
+  render();
+}
+
+function setTrendFilter(trend){
+  activeTrendFilter = (activeTrendFilter===trend) ? null : trend;
   render();
 }
 
@@ -634,6 +675,23 @@ function renderThemeList(){
   });
 }
 
+function renderTrendList(){
+  const el = document.getElementById('trendList');
+  el.innerHTML = '';
+  if(!trends.length){
+    el.innerHTML = '<div class="trend-empty">Aucune tendance pour l\'instant</div>';
+    return;
+  }
+  trends.forEach(trend=>{
+    const count = articles.filter(a=>a.tags.includes(trend)).length;
+    const div = document.createElement('div');
+    div.className = 'trend-chip' + (activeTrendFilter===trend ? ' active' : '');
+    div.onclick = ()=>setTrendFilter(trend);
+    div.innerHTML = `<span>${trend}</span><span class="count">${count}</span>`;
+    el.appendChild(div);
+  });
+}
+
 function renderTagPickRow(){
   const row = document.getElementById('tagPickRow');
   row.innerHTML = '';
@@ -644,14 +702,23 @@ function renderTagPickRow(){
     span.onclick = ()=>toggleTagPick(theme);
     row.appendChild(span);
   });
+  trends.forEach(trend=>{
+    const span = document.createElement('span');
+    span.className = 'tag-pick trend' + (selectedTags.includes(trend) ? ' selected' : '');
+    span.textContent = trend;
+    span.onclick = ()=>toggleTagPick(trend);
+    row.appendChild(span);
+  });
 }
 
 function render(){
   renderThemeList();
+  renderTrendList();
   renderTagPickRow();
 
   let filtered = articles;
   if(activeThemeFilter) filtered = filtered.filter(a=>a.tags.includes(activeThemeFilter));
+  if(activeTrendFilter) filtered = filtered.filter(a=>a.tags.includes(activeTrendFilter));
   if(activeStatus==='pending') filtered = filtered.filter(a=>!a.fait);
   if(activeStatus==='done') filtered = filtered.filter(a=>a.fait);
 
@@ -666,7 +733,7 @@ function render(){
       ? `<a href="${art.url}" target="_blank" rel="noopener">${art.title}</a>`
       : art.title;
 
-    const tagsHtml = art.tags.map(t=>`<span class="tag-badge">${t}</span>`).join('');
+    const tagsHtml = art.tags.map(t=>`<span class="tag-badge${trends.includes(t) ? ' trend' : ''}">${t}</span>`).join('');
     const dateMissing = art.fait && !art.faitDate;
 
     tr.innerHTML = `
