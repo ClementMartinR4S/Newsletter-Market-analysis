@@ -197,6 +197,27 @@
   .trend-chip .count{color:var(--paper-dim); font-size:.78rem;}
   .trend-empty{color:var(--paper-dim); font-size:.8rem;}
 
+  .custom-tag-section{margin-top:1.6rem;}
+  .custom-tag-chip{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:.45rem .7rem;
+    border-radius:6px;
+    font-size:.85rem;
+    cursor:pointer;
+    margin-bottom:.3rem;
+    border:1px solid transparent;
+    color:var(--green);
+  }
+  .custom-tag-chip:hover{background:var(--ink-2);}
+  .custom-tag-chip.active{
+    background:var(--ink-2);
+    border-color:var(--green);
+  }
+  .custom-tag-chip .count{color:var(--paper-dim); font-size:.78rem;}
+  .custom-tag-empty{color:var(--paper-dim); font-size:.8rem;}
+
   .status-filter{margin-top:1.6rem;}
   .status-filter button{
     display:block;
@@ -294,6 +315,19 @@
     color:var(--ink);
     border-color:var(--coral);
   }
+  .tag-pick.custom{border-color:var(--green); color:var(--green);}
+  .tag-pick.custom.selected{
+    background:var(--green);
+    color:var(--ink);
+    border-color:var(--green);
+  }
+  .pick-row-label{
+    font-size:.7rem;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+    margin:0 0 .3rem;
+  }
   .add-article button.submit{
     background:var(--amber);
     color:var(--ink);
@@ -339,6 +373,8 @@
     font-size:.72rem;
   }
   .tag-badge.trend{border-color:var(--coral); color:var(--coral);}
+  .tag-badge.custom{border-color:var(--green); color:var(--green);}
+  .tag-badge.thematique{border-color:var(--amber); color:var(--amber);}
   .fait-cell{text-align:center;}
   .fait-cell input[type=checkbox]{
     width:18px;height:18px;
@@ -412,6 +448,15 @@
         <div id="trendList"></div>
       </div>
 
+      <div class="custom-tag-section">
+        <h2>Tags</h2>
+        <div id="customTagList"></div>
+        <div class="add-theme">
+          <input type="text" id="newTagInput" placeholder="Nouveau tag">
+          <button onclick="addCustomTag()">+</button>
+        </div>
+      </div>
+
       <div class="status-filter">
         <h2>Statut</h2>
         <button class="active" data-status="all" onclick="setStatusFilter('all')">Tous</button>
@@ -428,6 +473,9 @@
           <input type="text" id="sourceInput" placeholder="Source (newsletter)">
           <input type="text" id="urlInput" placeholder="Lien (optionnel)">
         </div>
+        <p class="pick-row-label">Thématique</p>
+        <div class="tag-select-row" id="thematiquePickRow"></div>
+        <p class="pick-row-label">Tags</p>
         <div class="tag-select-row" id="tagPickRow"></div>
         <button class="submit" onclick="addArticle()">Ajouter l'article</button>
       </div>
@@ -435,10 +483,11 @@
       <table>
         <thead>
           <tr>
-            <th style="width:32%">Article</th>
-            <th style="width:20%">Tags</th>
+            <th style="width:28%">Article</th>
+            <th style="width:16%">Thématique</th>
+            <th style="width:16%">Tags</th>
             <th style="width:12%">Fait</th>
-            <th style="width:16%">Date</th>
+            <th style="width:14%">Date</th>
             <th style="width:5%"></th>
           </tr>
         </thead>
@@ -463,10 +512,13 @@ const SUPABASE_ANON_KEY = 'sb_publishable_V96D3iX70x2aTOObhVwfcQ_3MgGFNoI';
 let session = null;
 let themes = [];
 let trends = [];
+let customTags = [];
 let articles = [];
+let selectedThematiques = [];
 let selectedTags = [];
 let activeThemeFilter = null;
 let activeTrendFilter = null;
+let activeCustomTagFilter = null;
 let activeStatus = 'all';
 
 /* ---------------- AUTHENTIFICATION ---------------- */
@@ -570,10 +622,12 @@ async function supaSet(key, value){
 async function loadData(){
   themes = await supaGet('themes', ['Cloud Infra','Intelligence Artificielle','SaaS','RH & Recrutement']);
   trends = await supaGet('tendances', []);
+  customTags = await supaGet('customTags', []);
   articles = await supaGet('articles', []);
   render();
 }
 async function saveThemes(){ await supaSet('themes', themes); }
+async function saveCustomTags(){ await supaSet('customTags', customTags); }
 async function saveArticles(){ await supaSet('articles', articles); }
 
 /* ---------------- LOGIQUE DE L'OUTIL ---------------- */
@@ -611,6 +665,27 @@ function setTrendFilter(trend){
   render();
 }
 
+function addCustomTag(){
+  const input = document.getElementById('newTagInput');
+  const val = input.value.trim();
+  if(!val) return;
+  if(!customTags.includes(val)) customTags.push(val);
+  input.value = '';
+  saveCustomTags();
+  render();
+}
+
+function setCustomTagFilter(tag){
+  activeCustomTagFilter = (activeCustomTagFilter===tag) ? null : tag;
+  render();
+}
+
+function toggleThematiquePick(theme){
+  const i = selectedThematiques.indexOf(theme);
+  if(i>-1) selectedThematiques.splice(i,1); else selectedThematiques.push(theme);
+  renderThematiquePickRow();
+}
+
 function toggleTagPick(tag){
   const i = selectedTags.indexOf(tag);
   if(i>-1) selectedTags.splice(i,1); else selectedTags.push(tag);
@@ -625,6 +700,7 @@ function addArticle(){
   articles.unshift({
     id: Date.now().toString(),
     title, source, url,
+    thematiques: [...selectedThematiques],
     tags: [...selectedTags],
     fait: false,
     faitDate: null
@@ -632,6 +708,7 @@ function addArticle(){
   document.getElementById('titleInput').value='';
   document.getElementById('sourceInput').value='';
   document.getElementById('urlInput').value='';
+  selectedThematiques = [];
   selectedTags = [];
   saveArticles();
   render();
@@ -666,7 +743,7 @@ function renderThemeList(){
   const el = document.getElementById('themeList');
   el.innerHTML = '';
   themes.forEach(theme=>{
-    const count = articles.filter(a=>a.tags.includes(theme)).length;
+    const count = articles.filter(a=>(a.thematiques||[]).includes(theme)).length;
     const div = document.createElement('div');
     div.className = 'theme-chip' + (activeThemeFilter===theme ? ' active' : '');
     div.onclick = ()=>setThemeFilter(theme);
@@ -683,7 +760,7 @@ function renderTrendList(){
     return;
   }
   trends.forEach(trend=>{
-    const count = articles.filter(a=>a.tags.includes(trend)).length;
+    const count = articles.filter(a=>(a.tags||[]).includes(trend)).length;
     const div = document.createElement('div');
     div.className = 'trend-chip' + (activeTrendFilter===trend ? ' active' : '');
     div.onclick = ()=>setTrendFilter(trend);
@@ -692,16 +769,38 @@ function renderTrendList(){
   });
 }
 
-function renderTagPickRow(){
-  const row = document.getElementById('tagPickRow');
+function renderCustomTagList(){
+  const el = document.getElementById('customTagList');
+  el.innerHTML = '';
+  if(!customTags.length){
+    el.innerHTML = '<div class="custom-tag-empty">Aucun tag pour l\'instant</div>';
+    return;
+  }
+  customTags.forEach(tag=>{
+    const count = articles.filter(a=>(a.tags||[]).includes(tag)).length;
+    const div = document.createElement('div');
+    div.className = 'custom-tag-chip' + (activeCustomTagFilter===tag ? ' active' : '');
+    div.onclick = ()=>setCustomTagFilter(tag);
+    div.innerHTML = `<span>${tag}</span><span class="count">${count}</span>`;
+    el.appendChild(div);
+  });
+}
+
+function renderThematiquePickRow(){
+  const row = document.getElementById('thematiquePickRow');
   row.innerHTML = '';
   themes.forEach(theme=>{
     const span = document.createElement('span');
-    span.className = 'tag-pick' + (selectedTags.includes(theme) ? ' selected' : '');
+    span.className = 'tag-pick' + (selectedThematiques.includes(theme) ? ' selected' : '');
     span.textContent = theme;
-    span.onclick = ()=>toggleTagPick(theme);
+    span.onclick = ()=>toggleThematiquePick(theme);
     row.appendChild(span);
   });
+}
+
+function renderTagPickRow(){
+  const row = document.getElementById('tagPickRow');
+  row.innerHTML = '';
   trends.forEach(trend=>{
     const span = document.createElement('span');
     span.className = 'tag-pick trend' + (selectedTags.includes(trend) ? ' selected' : '');
@@ -709,16 +808,26 @@ function renderTagPickRow(){
     span.onclick = ()=>toggleTagPick(trend);
     row.appendChild(span);
   });
+  customTags.forEach(tag=>{
+    const span = document.createElement('span');
+    span.className = 'tag-pick custom' + (selectedTags.includes(tag) ? ' selected' : '');
+    span.textContent = tag;
+    span.onclick = ()=>toggleTagPick(tag);
+    row.appendChild(span);
+  });
 }
 
 function render(){
   renderThemeList();
   renderTrendList();
+  renderCustomTagList();
+  renderThematiquePickRow();
   renderTagPickRow();
 
   let filtered = articles;
-  if(activeThemeFilter) filtered = filtered.filter(a=>a.tags.includes(activeThemeFilter));
-  if(activeTrendFilter) filtered = filtered.filter(a=>a.tags.includes(activeTrendFilter));
+  if(activeThemeFilter) filtered = filtered.filter(a=>(a.thematiques||[]).includes(activeThemeFilter));
+  if(activeTrendFilter) filtered = filtered.filter(a=>(a.tags||[]).includes(activeTrendFilter));
+  if(activeCustomTagFilter) filtered = filtered.filter(a=>(a.tags||[]).includes(activeCustomTagFilter));
   if(activeStatus==='pending') filtered = filtered.filter(a=>!a.fait);
   if(activeStatus==='done') filtered = filtered.filter(a=>a.fait);
 
@@ -733,7 +842,11 @@ function render(){
       ? `<a href="${art.url}" target="_blank" rel="noopener">${art.title}</a>`
       : art.title;
 
-    const tagsHtml = art.tags.map(t=>`<span class="tag-badge${trends.includes(t) ? ' trend' : ''}">${t}</span>`).join('');
+    const thematiquesHtml = (art.thematiques||[]).map(t=>`<span class="tag-badge thematique">${t}</span>`).join('');
+    const tagsHtml = (art.tags||[]).map(t=>{
+      const cls = trends.includes(t) ? ' trend' : (customTags.includes(t) ? ' custom' : '');
+      return `<span class="tag-badge${cls}">${t}</span>`;
+    }).join('');
     const dateMissing = art.fait && !art.faitDate;
 
     tr.innerHTML = `
@@ -741,6 +854,7 @@ function render(){
         <div class="art-title">${titleHtml}</div>
         ${art.source ? `<div class="art-source">${art.source}</div>` : ''}
       </td>
+      <td><div class="tag-list">${thematiquesHtml}</div></td>
       <td><div class="tag-list">${tagsHtml}</div></td>
       <td class="fait-cell">
         <input type="checkbox" ${art.fait ? 'checked' : ''} onchange="toggleFait('${art.id}', this.checked)">
