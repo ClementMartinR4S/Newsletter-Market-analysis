@@ -353,6 +353,9 @@
     padding:.6rem .6rem;
     border-bottom:1px solid var(--line);
   }
+  thead th.sortable{cursor:pointer; user-select:none;}
+  thead th.sortable:hover{color:var(--paper);}
+  .sort-arrow{font-size:.65rem; margin-left:.2rem; color:var(--amber);}
   tbody td{
     padding:.75rem .6rem;
     border-bottom:1px solid var(--line);
@@ -375,6 +378,19 @@
   .tag-badge.trend{border-color:var(--coral); color:var(--coral);}
   .tag-badge.custom{border-color:var(--green); color:var(--green);}
   .tag-badge.thematique{border-color:var(--amber); color:var(--amber);}
+  .tag-badge .rm{margin-left:.35rem; cursor:pointer; opacity:.55;}
+  .tag-badge .rm:hover{opacity:1; color:var(--coral);}
+  .inline-tag-add{margin-top:.35rem;}
+  .inline-tag-add input{
+    width:100%;
+    max-width:120px;
+    background:var(--ink);
+    border:1px solid var(--line);
+    color:var(--paper);
+    font-size:.72rem;
+    padding:.2rem .5rem;
+    border-radius:12px;
+  }
   .fait-cell{text-align:center;}
   .fait-cell input[type=checkbox]{
     width:18px;height:18px;
@@ -483,11 +499,11 @@
       <table>
         <thead>
           <tr>
-            <th style="width:28%">Article</th>
-            <th style="width:16%">Thématique</th>
-            <th style="width:16%">Tags</th>
+            <th style="width:28%" class="sortable" onclick="setSort('title')">Article <span class="sort-arrow" id="sortArrow-title"></span></th>
+            <th style="width:16%" class="sortable" onclick="setSort('thematiques')">Thématique <span class="sort-arrow" id="sortArrow-thematiques"></span></th>
+            <th style="width:16%" class="sortable" onclick="setSort('tags')">Tags <span class="sort-arrow" id="sortArrow-tags"></span></th>
             <th style="width:12%">Fait</th>
-            <th style="width:14%">Date</th>
+            <th style="width:14%" class="sortable" onclick="setSort('date')">Date <span class="sort-arrow" id="sortArrow-date"></span></th>
             <th style="width:5%"></th>
           </tr>
         </thead>
@@ -520,6 +536,8 @@ let activeThemeFilter = null;
 let activeTrendFilter = null;
 let activeCustomTagFilter = null;
 let activeStatus = 'all';
+let sortBy = null;
+let sortDir = 'asc';
 
 /* ---------------- AUTHENTIFICATION ---------------- */
 
@@ -714,6 +732,42 @@ function addArticle(){
   render();
 }
 
+function setSort(col){
+  if(sortBy===col){ sortDir = sortDir==='asc' ? 'desc' : 'asc'; }
+  else { sortBy = col; sortDir = 'asc'; }
+  render();
+}
+
+function addTagToArticle(articleId, raw){
+  const parts = String(raw).split(',').map(s=>s.trim()).filter(Boolean);
+  if(!parts.length) return;
+  const art = articles.find(a=>a.id===articleId);
+  if(!art) return;
+  if(!art.tags) art.tags = [];
+  let changed = false;
+  let newCustom = false;
+  parts.forEach(tag=>{
+    if(!art.tags.includes(tag)){ art.tags.push(tag); changed = true; }
+    if(!customTags.includes(tag)){ customTags.push(tag); newCustom = true; }
+  });
+  if(changed) saveArticles();
+  if(newCustom) saveCustomTags();
+  if(changed || newCustom) render();
+}
+
+function addTagToArticleFromInput(articleId, inputEl){
+  addTagToArticle(articleId, inputEl.value);
+  inputEl.value = '';
+}
+
+function removeTagFromArticle(articleId, tag){
+  const art = articles.find(a=>a.id===articleId);
+  if(!art || !art.tags) return;
+  art.tags = art.tags.filter(t=>t!==tag);
+  saveArticles();
+  render();
+}
+
 function deleteArticle(id){
   articles = articles.filter(a=>a.id!==id);
   saveArticles();
@@ -831,6 +885,22 @@ function render(){
   if(activeStatus==='pending') filtered = filtered.filter(a=>!a.fait);
   if(activeStatus==='done') filtered = filtered.filter(a=>a.fait);
 
+  if(sortBy){
+    const dir = sortDir==='asc' ? 1 : -1;
+    const sortKey = a => {
+      if(sortBy==='title') return a.title || '';
+      if(sortBy==='thematiques') return (a.thematiques||[]).slice().sort().join(', ');
+      if(sortBy==='tags') return (a.tags||[]).slice().sort().join(', ');
+      if(sortBy==='date') return a.faitDate || '';
+      return '';
+    };
+    filtered = [...filtered].sort((a,b)=> sortKey(a).localeCompare(sortKey(b), 'fr') * dir);
+  }
+  ['title','thematiques','tags','date'].forEach(col=>{
+    const el = document.getElementById('sortArrow-'+col);
+    if(el) el.textContent = sortBy===col ? (sortDir==='asc' ? '▲' : '▼') : '';
+  });
+
   const tbody = document.getElementById('articleRows');
   tbody.innerHTML = '';
   document.getElementById('emptyState').style.display = filtered.length ? 'none' : 'block';
@@ -843,10 +913,6 @@ function render(){
       : art.title;
 
     const thematiquesHtml = (art.thematiques||[]).map(t=>`<span class="tag-badge thematique">${t}</span>`).join('');
-    const tagsHtml = (art.tags||[]).map(t=>{
-      const cls = trends.includes(t) ? ' trend' : (customTags.includes(t) ? ' custom' : '');
-      return `<span class="tag-badge${cls}">${t}</span>`;
-    }).join('');
     const dateMissing = art.fait && !art.faitDate;
 
     tr.innerHTML = `
@@ -855,7 +921,12 @@ function render(){
         ${art.source ? `<div class="art-source">${art.source}</div>` : ''}
       </td>
       <td><div class="tag-list">${thematiquesHtml}</div></td>
-      <td><div class="tag-list">${tagsHtml}</div></td>
+      <td>
+        <div class="tag-list tag-cell-editable"></div>
+        <div class="inline-tag-add">
+          <input type="text" placeholder="+ tag" onkeydown="if(event.key==='Enter'){event.preventDefault(); addTagToArticleFromInput('${art.id}', this);}">
+        </div>
+      </td>
       <td class="fait-cell">
         <input type="checkbox" ${art.fait ? 'checked' : ''} onchange="toggleFait('${art.id}', this.checked)">
       </td>
@@ -867,6 +938,22 @@ function render(){
       </td>
       <td><button class="del-btn" onclick="deleteArticle('${art.id}')" title="Supprimer">✕</button></td>
     `;
+
+    const tagCell = tr.querySelector('.tag-cell-editable');
+    (art.tags||[]).forEach(t=>{
+      const badge = document.createElement('span');
+      const cls = trends.includes(t) ? ' trend' : (customTags.includes(t) ? ' custom' : '');
+      badge.className = 'tag-badge' + cls;
+      badge.appendChild(document.createTextNode(t));
+      const rm = document.createElement('span');
+      rm.className = 'rm';
+      rm.textContent = '×';
+      rm.title = 'Retirer ce tag';
+      rm.onclick = (e)=>{ e.stopPropagation(); removeTagFromArticle(art.id, t); };
+      badge.appendChild(rm);
+      tagCell.appendChild(badge);
+    });
+
     tbody.appendChild(tr);
   });
 }
