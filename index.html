@@ -814,7 +814,7 @@ function renderTrendList(){
     return;
   }
   trends.forEach(trend=>{
-    const count = articles.filter(a=>(a.tags||[]).includes(trend)).length;
+    const count = articles.filter(a=>(a.thematiques||[]).includes(trend)).length;
     const div = document.createElement('div');
     div.className = 'trend-chip' + (activeTrendFilter===trend ? ' active' : '');
     div.onclick = ()=>setTrendFilter(trend);
@@ -850,18 +850,18 @@ function renderThematiquePickRow(){
     span.onclick = ()=>toggleThematiquePick(theme);
     row.appendChild(span);
   });
+  trends.forEach(trend=>{
+    const span = document.createElement('span');
+    span.className = 'tag-pick trend' + (selectedThematiques.includes(trend) ? ' selected' : '');
+    span.textContent = trend;
+    span.onclick = ()=>toggleThematiquePick(trend);
+    row.appendChild(span);
+  });
 }
 
 function renderTagPickRow(){
   const row = document.getElementById('tagPickRow');
   row.innerHTML = '';
-  trends.forEach(trend=>{
-    const span = document.createElement('span');
-    span.className = 'tag-pick trend' + (selectedTags.includes(trend) ? ' selected' : '');
-    span.textContent = trend;
-    span.onclick = ()=>toggleTagPick(trend);
-    row.appendChild(span);
-  });
   customTags.forEach(tag=>{
     const span = document.createElement('span');
     span.className = 'tag-pick custom' + (selectedTags.includes(tag) ? ' selected' : '');
@@ -880,7 +880,7 @@ function render(){
 
   let filtered = articles;
   if(activeThemeFilter) filtered = filtered.filter(a=>(a.thematiques||[]).includes(activeThemeFilter));
-  if(activeTrendFilter) filtered = filtered.filter(a=>(a.tags||[]).includes(activeTrendFilter));
+  if(activeTrendFilter) filtered = filtered.filter(a=>(a.thematiques||[]).includes(activeTrendFilter));
   if(activeCustomTagFilter) filtered = filtered.filter(a=>(a.tags||[]).includes(activeCustomTagFilter));
   if(activeStatus==='pending') filtered = filtered.filter(a=>!a.fait);
   if(activeStatus==='done') filtered = filtered.filter(a=>a.fait);
@@ -912,7 +912,7 @@ function render(){
       ? `<a href="${art.url}" target="_blank" rel="noopener">${art.title}</a>`
       : art.title;
 
-    const thematiquesHtml = (art.thematiques||[]).map(t=>`<span class="tag-badge thematique">${t}</span>`).join('');
+    const thematiquesHtml = (art.thematiques||[]).map(t=>`<span class="tag-badge ${trends.includes(t) ? 'trend' : 'thematique'}">${t}</span>`).join('');
     const dateMissing = art.fait && !art.faitDate;
 
     tr.innerHTML = `
@@ -942,7 +942,7 @@ function render(){
     const tagCell = tr.querySelector('.tag-cell-editable');
     (art.tags||[]).forEach(t=>{
       const badge = document.createElement('span');
-      const cls = trends.includes(t) ? ' trend' : (customTags.includes(t) ? ' custom' : '');
+      const cls = customTags.includes(t) ? ' custom' : '';
       badge.className = 'tag-badge' + cls;
       badge.appendChild(document.createTextNode(t));
       const rm = document.createElement('span');
